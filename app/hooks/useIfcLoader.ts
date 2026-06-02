@@ -132,6 +132,7 @@ export function useIfcLoader(url: string) {
   const [model, setModel] = useState<THREE.Group | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [materials, setMaterials] = useState<MaterialAggregate[]>([])
 
   useEffect(() => {
     let cancelled = false
@@ -198,13 +199,14 @@ export function useIfcLoader(url: string) {
           }
         })
 
-        const materials = await extractMaterials(ifcApi, modelID)
-console.log('Extracted materials:', materials)
+        const extractedMaterials = await extractMaterials(ifcApi, modelID)
+  console.log('Extracted materials:', extractedMaterials)
 
         ifcApi.CloseModel(modelID)
 
         if (!cancelled) {
           setModel(group)
+          setMaterials(extractedMaterials)
           setLoading(false)
         }
       } catch (e) {
@@ -220,5 +222,5 @@ console.log('Extracted materials:', materials)
     return () => { cancelled = true }
   }, [url])
 
-  return { model, loading, error }
+  return { model, materials, loading, error }
 }
