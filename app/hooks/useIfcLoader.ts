@@ -17,6 +17,40 @@ export interface MaterialAggregate {
   elementsByType: Record<string, number>
 }
 
+// Walks any "material association" down to the first concrete IfcMaterial.
+// Handles IfcMaterial, IfcMaterialLayerSetUsage, IfcMaterialLayerSet,
+// IfcMaterialList, and IfcMaterialConstituentSet.
+// Returns the expressID of the resolved material, or null.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function resolveMaterialID(entity: any): number | null {
+  if (!entity) return null
+
+  // Direct IfcMaterial (has a string Name, no nested layer structure)
+  if (entity.Name && typeof entity.Name.value === 'string' && !entity.ForLayerSet) {
+    return entity.expressID
+  }
+
+  // IfcMaterialLayerSetUsage → ForLayerSet
+  if (entity.ForLayerSet) return resolveMaterialID(entity.ForLayerSet)
+
+  // IfcMaterialLayerSet → MaterialLayers[0].Material
+  if (entity.MaterialLayers?.length > 0) {
+    return resolveMaterialID(entity.MaterialLayers[0].Material)
+  }
+
+  // IfcMaterialList → Materials[0]
+  if (entity.Materials?.length > 0) {
+    return resolveMaterialID(entity.Materials[0])
+  }
+
+  // IfcMaterialConstituentSet → MaterialConstituents[0].Material
+  if (entity.MaterialConstituents?.length > 0) {
+    return resolveMaterialID(entity.MaterialConstituents[0].Material)
+  }
+
+  return null
+}
+
 async function extractMaterials(
   ifcApi: IfcAPI,
   modelID: number
@@ -34,22 +68,21 @@ async function extractMaterials(
   for (const relID of relIDs) {
     const rel = ifcApi.GetLine(modelID, relID, true)
 
-    // INSPECT THE FIRST 2 RELATIONSHIPS
-    if (inspected < 2) {
-      console.log(`[INSPECT ${inspected}] full rel:`, rel)
-      console.log(`[INSPECT ${inspected}] RelatingMaterial:`, rel.RelatingMaterial)
-      console.log(`[INSPECT ${inspected}] RelatedObjects:`, rel.RelatedObjects)
-      console.log(`[INSPECT ${inspected}] RelatedObjects is array?`, Array.isArray(rel.RelatedObjects))
-      if (rel.RelatedObjects && rel.RelatedObjects[0]) {
-        console.log(`[INSPECT ${inspected}] first RelatedObject:`, rel.RelatedObjects[0])
-      }
+    if (!rel.RelatingMaterial) continue
+
+    const materialID = resolveMaterialID(rel.RelatingMaterial)
+
+    if (inspected < 1) {
+      console.log('[INSPECT] sample rel.RelatingMaterial:', rel.RelatingMaterial)
+      console.log('[INSPECT] resolved materialID:', materialID)
+      console.log('[INSPECT] first RelatedObject:', rel.RelatedObjects?.[0])
       inspected++
     }
 
-    if (!rel.RelatingMaterial) continue
-    const materialID = rel.RelatingMaterial.value
+    if (materialID === null) continue
+
     for (const ref of rel.RelatedObjects) {
-      elementToMaterial.set(ref.value, materialID)
+      elementToMaterial.set(ref.expressID, materialID)
     }
   }
   console.log('[DEBUG] elementToMaterial size after Part A:', elementToMaterial.size)
