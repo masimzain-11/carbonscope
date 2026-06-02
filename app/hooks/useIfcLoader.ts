@@ -2,7 +2,98 @@
 
 import { useEffect, useState } from 'react'
 import * as THREE from 'three'
-import { IfcAPI } from 'web-ifc'
+import {
+  IfcAPI,
+  IFCWALL,
+  IFCSLAB,
+  IFCCOLUMN,
+  IFCBEAM,
+  IFCRELASSOCIATESMATERIAL,
+} from 'web-ifc'
+
+export interface MaterialAggregate {
+  materialName: string
+  totalElements: number
+  elementsByType: Record<string, number>
+}
+
+async function extractMaterials(
+  ifcApi: IfcAPI,
+  modelID: number
+): Promise<MaterialAggregate[]> {
+  // --- PART A: Build elementID → materialID Map ---
+  const elementToMaterial = new Map<number, number>()
+
+  const relIDs = ifcApi.GetLineIDsWithType(modelID, IFCRELASSOCIATESMATERIAL)
+  console.log('[DEBUG] relIDs raw:', relIDs)
+  console.log('[DEBUG] relIDs is array?', Array.isArray(relIDs))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  console.log('[DEBUG] relIDs size:', (relIDs as any).size?.() ?? (relIDs as any).length)
+
+  let inspected = 0
+  for (const relID of relIDs) {
+    const rel = ifcApi.GetLine(modelID, relID, true)
+
+    // INSPECT THE FIRST 2 RELATIONSHIPS
+    if (inspected < 2) {
+      console.log(`[INSPECT ${inspected}] full rel:`, rel)
+      console.log(`[INSPECT ${inspected}] RelatingMaterial:`, rel.RelatingMaterial)
+      console.log(`[INSPECT ${inspected}] RelatedObjects:`, rel.RelatedObjects)
+      console.log(`[INSPECT ${inspected}] RelatedObjects is array?`, Array.isArray(rel.RelatedObjects))
+      if (rel.RelatedObjects && rel.RelatedObjects[0]) {
+        console.log(`[INSPECT ${inspected}] first RelatedObject:`, rel.RelatedObjects[0])
+      }
+      inspected++
+    }
+
+    if (!rel.RelatingMaterial) continue
+    const materialID = rel.RelatingMaterial.value
+    for (const ref of rel.RelatedObjects) {
+      elementToMaterial.set(ref.value, materialID)
+    }
+  }
+  console.log('[DEBUG] elementToMaterial size after Part A:', elementToMaterial.size)
+
+  // --- PART B: For each element type we care about, group by material ---
+  const ELEMENT_TYPES = [
+    { id: IFCWALL, name: 'IFCWALL' },
+    { id: IFCSLAB, name: 'IFCSLAB' },
+    { id: IFCCOLUMN, name: 'IFCCOLUMN' },
+    { id: IFCBEAM, name: 'IFCBEAM' },
+  ]
+
+  const aggregation = new Map<number, Record<string, number>>()
+
+  for (const elemType of ELEMENT_TYPES) {
+    const elemIDs = ifcApi.GetLineIDsWithType(modelID, elemType.id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    console.log(`[DEBUG] ${elemType.name} count:`, (elemIDs as any).size?.() ?? (elemIDs as any).length)
+    for (const elemID of elemIDs) {
+      const matID = elementToMaterial.get(elemID)
+      if (matID === undefined) continue
+
+      if (!aggregation.has(matID)) aggregation.set(matID, {})
+      const byType = aggregation.get(matID)!
+      byType[elemType.name] = (byType[elemType.name] || 0) + 1
+    }
+  }
+  console.log('[DEBUG] aggregation size:', aggregation.size)
+
+  // --- PART C: Resolve material names and produce the final list ---
+  const result: MaterialAggregate[] = []
+
+  for (const [matID, byType] of aggregation) {
+    const material = ifcApi.GetLine(modelID, matID, true)
+    const materialName =
+      material.Name?.value || `Material #${matID} (type: ${material.type})`
+
+    const totalElements = Object.values(byType).reduce((sum, n) => sum + n, 0)
+
+    result.push({ materialName, totalElements, elementsByType: byType })
+  }
+
+  return result.sort((a, b) => b.totalElements - a.totalElements)
+}
 
 export function useIfcLoader(url: string) {
   const [model, setModel] = useState<THREE.Group | null>(null)
@@ -73,6 +164,9 @@ export function useIfcLoader(url: string) {
             geometry.delete()
           }
         })
+
+        const materials = await extractMaterials(ifcApi, modelID)
+console.log('Extracted materials:', materials)
 
         ifcApi.CloseModel(modelID)
 
