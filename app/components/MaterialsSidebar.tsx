@@ -27,16 +27,16 @@ export default function MaterialsSidebar({ materials }: MaterialsSidebarProps) {
       </p>
       <p className="text-2xl font-bold text-emerald-300 mt-1">
         {formatTons(
-          materials.reduce((sum, mat) => {
-            const c = estimateEmbodiedCarbonKg(mat.materialName, mat.elementsByType)
-            return sum + (c ?? 0)
-          }, 0)
-        )}
+  materials.reduce((sum, mat) => {
+    const c = estimateEmbodiedCarbonKg(mat.materialName, mat.elementsByType, mat.totalVolumeM3)
+    return sum + (c ?? 0)
+  }, 0)
+)}
         <span className="text-sm text-slate-400 ml-1.5">tCO₂e</span>
       </p>
       <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-wide">
-        Placeholder estimate · volume extraction coming
-      </p>
+      Calculated from real IFC volumes · ICE v3 coefficients
+    </p>
     </div>
   )}
 </div>
@@ -53,7 +53,7 @@ export default function MaterialsSidebar({ materials }: MaterialsSidebarProps) {
           .join(' · ')
 
   const carbonMatch = matchCarbonCoefficient(mat.materialName)
-  const estimatedKgCO2 = estimateEmbodiedCarbonKg(mat.materialName, mat.elementsByType)
+  const estimatedKgCO2 = estimateEmbodiedCarbonKg(mat.materialName, mat.elementsByType, mat.totalVolumeM3)
 
   return (
     <li

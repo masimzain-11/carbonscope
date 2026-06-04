@@ -340,11 +340,20 @@ export function estimateMassKg(elementsByType: Record<string, number>): number {
  */
 export function estimateEmbodiedCarbonKg(
   materialName: string,
-  elementsByType: Record<string, number>
+  elementsByType: Record<string, number>,
+  totalVolumeM3: number = 0
 ): number | null {
   const match = matchCarbonCoefficient(materialName)
   if (!match) return null
 
+  // Prefer real volume if we have it (volume × density × coefficient).
+  // Fall back to placeholder element-count estimate when volume is 0.
+  if (totalVolumeM3 > 0) {
+    const massKg = totalVolumeM3 * match.densityKgPerM3
+    return massKg * match.kgCO2ePerUnit
+  }
+
+  // Fallback: rough placeholder using element counts
   const massKg = estimateMassKg(elementsByType)
   return massKg * match.kgCO2ePerUnit
 }

@@ -9,12 +9,15 @@ import {
   IFCCOLUMN,
   IFCBEAM,
   IFCRELASSOCIATESMATERIAL,
+  IFCRELDEFINESBYPROPERTIES,    // ← ADD
+  IFCQUANTITYVOLUME,            // ← ADD
 } from 'web-ifc'
 
 export interface MaterialAggregate {
   materialName: string
   totalElements: number
   elementsByType: Record<string, number>
+  totalVolumeM3: number  // ← ADD THIS LINE
 }
 
 // Walks any "material association" down to the first concrete IfcMaterial.
@@ -87,6 +90,41 @@ async function extractMaterials(
   }
   console.log('[DEBUG] elementToMaterial size after Part A:', elementToMaterial.size)
 
+  // --- PART A.5: Build elementID → volumeM3 Map ---
+  const elementToVolume = new Map<number, number>()
+
+  const propRelIDs = ifcApi.GetLineIDsWithType(modelID, IFCRELDEFINESBYPROPERTIES)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  console.log('[DEBUG] propRelIDs size:', (propRelIDs as any).size?.() ?? (propRelIDs as any).length)
+
+  for (const relID of propRelIDs) {
+    const rel = ifcApi.GetLine(modelID, relID, true)
+    if (!rel.RelatingPropertyDefinition || !rel.RelatedObjects) continue
+
+    const propDef = rel.RelatingPropertyDefinition
+    // We only care about quantity sets (IfcElementQuantity), not generic property sets
+    if (!propDef.Quantities || !Array.isArray(propDef.Quantities)) continue
+
+    // Sum up all volume quantities inside this set
+    let volumeM3 = 0
+    for (const q of propDef.Quantities) {
+      // IfcQuantityVolume has type = IFCQUANTITYVOLUME (a number constant)
+      if (q.type === IFCQUANTITYVOLUME && typeof q.VolumeValue?.value === 'number') {
+        volumeM3 += q.VolumeValue.value
+      }
+    }
+
+    if (volumeM3 <= 0) continue
+
+    // Attach this volume to every related element (usually just one)
+    for (const ref of rel.RelatedObjects) {
+      const existing = elementToVolume.get(ref.expressID) ?? 0
+      elementToVolume.set(ref.expressID, existing + volumeM3)
+    }
+  }
+
+  console.log('[DEBUG] elementToVolume size:', elementToVolume.size)
+
   // --- PART B: For each element type we care about, group by material ---
   const ELEMENT_TYPES = [
     { id: IFCWALL, name: 'IFCWALL' },
@@ -95,22 +133,30 @@ async function extractMaterials(
     { id: IFCBEAM, name: 'IFCBEAM' },
   ]
 
-  const aggregation = new Map<number, Record<string, number>>()
+ const aggregation = new Map<number, Record<string, number>>()
+  const materialVolumes = new Map<number, number>()  // materialID → total m³
 
   for (const elemType of ELEMENT_TYPES) {
     const elemIDs = ifcApi.GetLineIDsWithType(modelID, elemType.id)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     console.log(`[DEBUG] ${elemType.name} count:`, (elemIDs as any).size?.() ?? (elemIDs as any).length)
+
     for (const elemID of elemIDs) {
       const matID = elementToMaterial.get(elemID)
       if (matID === undefined) continue
 
+      // Count by type
       if (!aggregation.has(matID)) aggregation.set(matID, {})
       const byType = aggregation.get(matID)!
       byType[elemType.name] = (byType[elemType.name] || 0) + 1
+
+      // Sum volume
+      const elemVolume = elementToVolume.get(elemID) ?? 0
+      materialVolumes.set(matID, (materialVolumes.get(matID) ?? 0) + elemVolume)
     }
   }
   console.log('[DEBUG] aggregation size:', aggregation.size)
+  console.log('[DEBUG] materialVolumes:', Object.fromEntries(materialVolumes))
 
   // --- PART C: Resolve material names and produce the final list ---
   const result: MaterialAggregate[] = []
@@ -121,8 +167,9 @@ async function extractMaterials(
       material.Name?.value || `Material #${matID} (type: ${material.type})`
 
     const totalElements = Object.values(byType).reduce((sum, n) => sum + n, 0)
+    const totalVolumeM3 = materialVolumes.get(matID) ?? 0
 
-    result.push({ materialName, totalElements, elementsByType: byType })
+    result.push({ materialName, totalElements, elementsByType: byType, totalVolumeM3 })
   }
 
   return result.sort((a, b) => b.totalElements - a.totalElements)
