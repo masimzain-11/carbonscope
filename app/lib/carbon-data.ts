@@ -281,7 +281,13 @@ export const CARBON_DATABASE: CarbonCoefficient[] = [
 export function matchCarbonCoefficient(materialName: string): CarbonCoefficient | null {
   if (!materialName) return null
 
-  const normalized = materialName.toLowerCase()
+  // Normalize: lowercase, replace dashes/underscores with spaces, collapse multiple spaces.
+  // This lets "Concrete - 35 MPa" match patterns like "concrete 35 mpa".
+  const normalized = materialName
+    .toLowerCase()
+    .replace(/[-_]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 
   // Find all entries whose ANY pattern is a substring of the material name
   const matches: { entry: CarbonCoefficient; score: number }[] = []
