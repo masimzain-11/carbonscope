@@ -308,3 +308,43 @@ export function matchCarbonCoefficient(materialName: string): CarbonCoefficient 
   matches.sort((a, b) => b.score - a.score)
   return matches[0].entry
 }
+// ----- Element mass estimation -----
+// Rough average mass (kg) per element type, used as a placeholder
+// until we extract actual volumes from IFC. Numbers are conservative
+// averages for medium-scale construction; real values can vary 5-10x.
+
+export const AVG_ELEMENT_MASS_KG: Record<string, number> = {
+  IFCWALL: 4500,    // ~3m x 3m x 0.2m wall of concrete ≈ 4300 kg
+  IFCSLAB: 12000,   // ~20m² x 0.2m slab of concrete ≈ 12000 kg
+  IFCCOLUMN: 1800,  // ~3m x 0.3m x 0.3m column of concrete ≈ 650 kg, ×3 for reinforcement
+  IFCBEAM: 600,     // ~5m beam, varies enormously
+}
+
+/**
+ * Rough estimate of total mass (kg) for a material aggregate,
+ * using element counts × average mass per type.
+ * Replace with actual volume extraction in v1.
+ */
+export function estimateMassKg(elementsByType: Record<string, number>): number {
+  let total = 0
+  for (const [type, count] of Object.entries(elementsByType)) {
+    const avgMass = AVG_ELEMENT_MASS_KG[type] ?? 1000  // fallback for unknown types
+    total += count * avgMass
+  }
+  return total
+}
+
+/**
+ * Estimate total embodied carbon (kg CO2e) for a material aggregate.
+ * Returns null if the material has no matched coefficient.
+ */
+export function estimateEmbodiedCarbonKg(
+  materialName: string,
+  elementsByType: Record<string, number>
+): number | null {
+  const match = matchCarbonCoefficient(materialName)
+  if (!match) return null
+
+  const massKg = estimateMassKg(elementsByType)
+  return massKg * match.kgCO2ePerUnit
+}
