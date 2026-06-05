@@ -117,10 +117,13 @@ async function extractMaterials(
 
     if (volumeM3 <= 0) continue
 
-    // Attach this volume to every related element (usually just one)
+    // Attach this volume to every related element (usually just one).
+    // Use MAX, not SUM — the same volume is often reported across multiple
+    // IfcRelDefinesByProperties (different property sets), and summing
+    // double-counts. We trust the largest reported value.
     for (const ref of rel.RelatedObjects) {
       const existing = elementToVolume.get(ref.expressID) ?? 0
-      elementToVolume.set(ref.expressID, existing + volumeM3)
+      elementToVolume.set(ref.expressID, Math.max(existing, volumeM3))
     }
   }
 
@@ -271,6 +274,10 @@ export function useIfcLoader(source: string | File | null) {
             geometry.delete()
           }
         })
+// Center the model at origin (handles BIM files with geographic coordinates)
+        const box = new THREE.Box3().setFromObject(group)
+        const center = box.getCenter(new THREE.Vector3())
+        group.position.sub(center)
 
         const extractedMaterials = await extractMaterials(ifcApi, modelID)
   console.log('Extracted materials:', extractedMaterials)

@@ -42,9 +42,12 @@ export default function Scene() {
           ← Upload different file
         </button>
         <div className="px-3 py-1.5 text-xs bg-slate-800/60 text-slate-400 rounded-lg backdrop-blur-sm border border-slate-700/50">
-          <span className="text-slate-500">File:</span> {filename}
-        </div>
-      </div>
+  <span className="text-slate-500">File:</span> {filename}
+</div>
+<div className="px-3 py-1.5 text-xs bg-amber-500/10 text-amber-400 rounded-lg backdrop-blur-sm border border-amber-500/30">
+  Beta · numbers approximate on some files
+</div>
+</div>
 
       {/* Loading overlay */}
       {loading && (
