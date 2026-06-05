@@ -182,7 +182,7 @@ const aggregation = new Map<number, Record<string, number>>()
   return result.sort((a, b) => b.totalElements - a.totalElements)
 }
 
-export function useIfcLoader(url: string) {
+export function useIfcLoader(source: string | File | null) {
   const [model, setModel] = useState<THREE.Group | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -191,15 +191,34 @@ export function useIfcLoader(url: string) {
   useEffect(() => {
     let cancelled = false
 
+    // No source yet — reset state and bail (user hasn't picked a file)
+    if (!source) {
+      setLoading(false)
+      setModel(null)
+      setMaterials([])
+      setError(null)
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
     async function load() {
       try {
         const ifcApi = new IfcAPI()
         ifcApi.SetWasmPath('/wasm/', true)
         await ifcApi.Init()
 
-        const response = await fetch(url)
-        if (!response.ok) throw new Error(`Failed to fetch IFC: ${response.statusText}`)
-        const buffer = await response.arrayBuffer()
+        let buffer: ArrayBuffer
+        if (typeof source === 'string') {
+          // URL-based load (e.g., the demo /sample.ifc)
+          const response = await fetch(source)
+          if (!response.ok) throw new Error(`Failed to fetch IFC: ${response.statusText}`)
+          buffer = await response.arrayBuffer()
+        } else {
+          // File-based load (user-uploaded)
+          buffer = await (source as File).arrayBuffer()
+        }
         const modelID = ifcApi.OpenModel(new Uint8Array(buffer))
 
         const group = new THREE.Group()
@@ -274,7 +293,7 @@ export function useIfcLoader(url: string) {
 
     load()
     return () => { cancelled = true }
-  }, [url])
+  }, [source])  // ← change from [url] to [source]
 
   return { model, materials, loading, error }
 }
