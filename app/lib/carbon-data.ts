@@ -357,3 +357,20 @@ export function estimateEmbodiedCarbonKg(
   const massKg = estimateMassKg(elementsByType)
   return massKg * match.kgCO2ePerUnit
 }
+// ----- Floor area estimation -----
+// Estimates the building's total floor area (m²) by assuming slabs have
+// an average thickness. Standard concrete slabs are 150-250mm; we use 200mm.
+// This is a placeholder; v1 will extract IfcBuilding.GrossFloorArea directly.
+
+const ASSUMED_SLAB_THICKNESS_M = 0.2
+
+export function estimateFloorAreaM2(
+  materials: { volumeByType: Record<string, number> }[]
+): number {
+  // Sum only the IFCSLAB volume across all materials
+  let slabVolumeM3 = 0
+  for (const mat of materials) {
+    slabVolumeM3 += mat.volumeByType['IFCSLAB'] || 0
+  }
+  return slabVolumeM3 / ASSUMED_SLAB_THICKNESS_M
+}

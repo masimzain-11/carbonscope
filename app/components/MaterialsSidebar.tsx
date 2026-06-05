@@ -1,7 +1,7 @@
 'use client'
 
 import { MaterialAggregate } from '../hooks/useIfcLoader'
-import { matchCarbonCoefficient, estimateEmbodiedCarbonKg } from '../lib/carbon-data'
+import { matchCarbonCoefficient, estimateEmbodiedCarbonKg, estimateFloorAreaM2 } from '../lib/carbon-data'
 
 function formatTons(kg: number): string {
   const tons = kg / 1000
@@ -20,25 +20,55 @@ export default function MaterialsSidebar({ materials }: MaterialsSidebarProps) {
   <h2 className="text-2xl font-bold text-white">Materials</h2>
   <p className="text-sm text-slate-400 mt-1">{materials.length} materials found</p>
 
-  {materials.length > 0 && (
-    <div className="mt-4 p-3 bg-slate-900/60 rounded-lg">
-      <p className="text-xs text-slate-400 uppercase tracking-wide">
-        Estimated Total Embodied Carbon
-      </p>
-      <p className="text-2xl font-bold text-emerald-300 mt-1">
-        {formatTons(
-  materials.reduce((sum, mat) => {
+  {materials.length > 0 && (() => {
+  const totalKgCO2 = materials.reduce((sum, mat) => {
     const c = estimateEmbodiedCarbonKg(mat.materialName, mat.elementsByType, mat.totalVolumeM3)
     return sum + (c ?? 0)
   }, 0)
-)}
-        <span className="text-sm text-slate-400 ml-1.5">tCO₂e</span>
-      </p>
-      <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-wide">
-      Calculated from real IFC volumes · ICE v3 coefficients
-    </p>
+
+  const floorAreaM2 = estimateFloorAreaM2(materials)
+  const intensityKgPerM2 = floorAreaM2 > 0 ? totalKgCO2 / floorAreaM2 : 0
+
+  return (
+    <div className="mt-4 space-y-3">
+      {/* Total */}
+      <div className="p-3 bg-slate-900/60 rounded-lg">
+        <p className="text-xs text-slate-400 uppercase tracking-wide">
+          Total Embodied Carbon
+        </p>
+        <p className="text-2xl font-bold text-emerald-300 mt-1">
+          {formatTons(totalKgCO2)}
+          <span className="text-sm text-slate-400 ml-1.5">tCO₂e</span>
+        </p>
+        <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-wide">
+          Real IFC volumes · ICE v3 coefficients
+        </p>
+      </div>
+
+      {/* Intensity */}
+      {intensityKgPerM2 > 0 && (
+        <div className="p-3 bg-slate-900/60 rounded-lg">
+          <p className="text-xs text-slate-400 uppercase tracking-wide">
+            Carbon Intensity
+          </p>
+          <p className="text-xl font-bold text-sky-300 mt-1">
+            {Math.round(intensityKgPerM2)}
+            <span className="text-sm text-slate-400 ml-1.5">kgCO₂e/m²</span>
+          </p>
+          <p className="text-[10px] text-slate-500 mt-1">
+  <span className="uppercase tracking-wide">~{Math.round(floorAreaM2)} m² floor area</span>
+  {intensityKgPerM2 < 500 && <span className="ml-2 text-emerald-400">· low intensity</span>}
+  {intensityKgPerM2 >= 500 && intensityKgPerM2 < 800 && <span className="ml-2 text-amber-400">· typical</span>}
+  {intensityKgPerM2 >= 800 && <span className="ml-2 text-rose-400">· high intensity</span>}
+</p>
+<p className="text-[10px] text-slate-600 mt-1 italic">
+  Area estimated from IFCSLAB volumes — v1 will use IfcBuilding.GrossFloorArea directly
+</p>
+        </div>
+      )}
     </div>
-  )}
+  )
+})()}
 </div>
 
       {materials.length === 0 ? (

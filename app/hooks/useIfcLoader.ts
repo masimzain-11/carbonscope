@@ -17,7 +17,8 @@ export interface MaterialAggregate {
   materialName: string
   totalElements: number
   elementsByType: Record<string, number>
-  totalVolumeM3: number  // ← ADD THIS LINE
+  totalVolumeM3: number
+  volumeByType: Record<string, number>  // NEW: volume per element type
 }
 
 // Walks any "material association" down to the first concrete IfcMaterial.
@@ -133,8 +134,9 @@ async function extractMaterials(
     { id: IFCBEAM, name: 'IFCBEAM' },
   ]
 
- const aggregation = new Map<number, Record<string, number>>()
+const aggregation = new Map<number, Record<string, number>>()
   const materialVolumes = new Map<number, number>()  // materialID → total m³
+  const materialVolumesByType = new Map<number, Record<string, number>>()  // materialID → { type → m³ }
 
   for (const elemType of ELEMENT_TYPES) {
     const elemIDs = ifcApi.GetLineIDsWithType(modelID, elemType.id)
@@ -150,9 +152,14 @@ async function extractMaterials(
       const byType = aggregation.get(matID)!
       byType[elemType.name] = (byType[elemType.name] || 0) + 1
 
-      // Sum volume
+      // Sum total volume
       const elemVolume = elementToVolume.get(elemID) ?? 0
       materialVolumes.set(matID, (materialVolumes.get(matID) ?? 0) + elemVolume)
+
+      // Sum volume per type
+      if (!materialVolumesByType.has(matID)) materialVolumesByType.set(matID, {})
+      const volByType = materialVolumesByType.get(matID)!
+      volByType[elemType.name] = (volByType[elemType.name] || 0) + elemVolume
     }
   }
   console.log('[DEBUG] aggregation size:', aggregation.size)
@@ -168,10 +175,10 @@ async function extractMaterials(
 
     const totalElements = Object.values(byType).reduce((sum, n) => sum + n, 0)
     const totalVolumeM3 = materialVolumes.get(matID) ?? 0
+    const volumeByType = materialVolumesByType.get(matID) ?? {}
 
-    result.push({ materialName, totalElements, elementsByType: byType, totalVolumeM3 })
+    result.push({ materialName, totalElements, elementsByType: byType, totalVolumeM3, volumeByType })
   }
-
   return result.sort((a, b) => b.totalElements - a.totalElements)
 }
 
