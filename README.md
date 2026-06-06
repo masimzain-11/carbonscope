@@ -1,6 +1,6 @@
 # CarbonScope
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](./LICENSE)
 [![Live Demo](https://img.shields.io/badge/demo-live-blue.svg)](https://carbonscope-beta.vercel.app)
 [![Built with Next.js](https://img.shields.io/badge/Next.js-15-black.svg)](https://nextjs.org)
 [![Status: Beta](https://img.shields.io/badge/status-beta-orange.svg)](#current-status)
@@ -36,11 +36,6 @@ Give CarbonScope a project's material quantities. The tool:
 3. **Calculates embodied carbon** (tCO₂e) as real volume × density × coefficient, per material and as a project total.
 4. **Benchmarks intensity** — reports carbon per m² against low / typical / high industry bands so the number is interpretable.
 5. **Highlights hotspots** — flags the materials contributing the most to the total carbon footprint, where the biggest wins are available.
-
-```
-BoQ / IFC  →  extract quantities  →  match materials  →  calculate tCO₂e  →  benchmark + report
-```
-
 ---
 
 ## How carbon is calculated (methodology)
@@ -48,10 +43,6 @@ BoQ / IFC  →  extract quantities  →  match materials  →  calculate tCO₂e
 CarbonScope computes **cradle-to-gate embodied carbon (life-cycle stages A1–A3)** — the emissions from raw-material extraction, transport, and manufacture, before the material reaches site.
 
 For each material:
-```
-embodied carbon (kgCO₂e) = quantity (volume or mass) × density × ICE coefficient (kgCO₂e per kg)
-```
-
 Coefficients come from the **Inventory of Carbon & Energy (ICE) v3** (University of Bath) — a peer-reviewed academic dataset. Every figure is traceable to its source, and the roadmap adds per-line confidence scoring so users can see how reliable each match is.
 
 **Scope boundary:** CarbonScope covers product-stage embodied carbon (A1–A3). It does **not** currently model construction-stage (A4–A5), use-stage operational carbon (B), or end-of-life (C). This keeps the tool fast and decision-focused rather than a full life-cycle assessment.
@@ -186,4 +177,12 @@ CarbonScope is actively seeking pilot customers among quantity-surveying firms, 
 
 ## License
 
-[MIT](./LICENSE) — code is open source. The carbon coefficient values are derived from the publicly available ICE v3 database (University of Bath). When using CarbonScope outputs in published reports or commercial deliverables, please cite the ICE database appropriately.
+**GNU Affero General Public License v3.0 (AGPL-3.0)** — see [LICENSE](./LICENSE).
+
+CarbonScope is source-available under the AGPL. You are free to use, study, modify, and self-host it. The key condition: if you run a modified version as a network service, you must make your modified source available to its users under the same license. This keeps the project genuinely open while preventing it from being forked into a closed, competing commercial service.
+
+For commercial licensing that is not subject to the AGPL's copyleft terms, contact [LinkedIn](https://www.linkedin.com/in/masimzain-11/) or open a GitHub issue.
+
+> Note: the regional cost/carbon datasets, calibration data, and any customer data are **not** part of this repository and are not covered by this license.
+
+Copyright (C) 2025-2026 Asim Zain.
