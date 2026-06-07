@@ -36,6 +36,11 @@ Give CarbonScope a project's material quantities. The tool:
 3. **Calculates embodied carbon** (tCO₂e) as real volume × density × coefficient, per material and as a project total.
 4. **Benchmarks intensity** — reports carbon per m² against low / typical / high industry bands so the number is interpretable.
 5. **Highlights hotspots** — flags the materials contributing the most to the total carbon footprint, where the biggest wins are available.
+
+```
+BoQ / IFC  →  extract quantities  →  match materials  →  calculate tCO₂e  →  benchmark + report
+```
+
 ---
 
 ## How carbon is calculated (methodology)
@@ -43,6 +48,11 @@ Give CarbonScope a project's material quantities. The tool:
 CarbonScope computes **cradle-to-gate embodied carbon (life-cycle stages A1–A3)** — the emissions from raw-material extraction, transport, and manufacture, before the material reaches site.
 
 For each material:
+
+```
+embodied carbon (kgCO₂e) = quantity (volume or mass) × density × ICE coefficient (kgCO₂e per kg)
+```
+
 Coefficients come from the **Inventory of Carbon & Energy (ICE) v3** (University of Bath) — a peer-reviewed academic dataset. Every figure is traceable to its source, and the roadmap adds per-line confidence scoring so users can see how reliable each match is.
 
 **Scope boundary:** CarbonScope covers product-stage embodied carbon (A1–A3). It does **not** currently model construction-stage (A4–A5), use-stage operational carbon (B), or end-of-life (C). This keeps the tool fast and decision-focused rather than a full life-cycle assessment.
